@@ -16,7 +16,8 @@ const state = {
   tmax: null,
   geo: null,
   names: {},
-  paths: new Map(),        // section -> <path> selection
+  paths: new Map(),        // rendered section/group key -> <path> selection
+  validSections: new Set(),// section codes with GeoJSON geometry
 };
 
 // Replay driver: animates state.viewTime from tmin -> tmax over `durationMs`.
@@ -30,13 +31,22 @@ const replay = {
   lastPaint: 0,
 };
 
-const THRESHOLDS = [1, 3, 6, 12, 25, 50];   // QSO-count bins for the 7-step ramp
+const THRESHOLDS = [1, 3, 6, 12, 25, 50];
+const ONTARIO = {
+  key: "ONTARIO",
+  name: "Ontario (combined)",
+  sections: ["GH", "ONE", "ONN", "ONS"],
+};
+const ONTARIO_SECTIONS = new Set(ONTARIO.sections);
 
 // Far-flung sections rendered as inset boxes so the contiguous US stays large.
 const INSETS = [
-  { label: "AK", sections: ["AK"], rotate: [154, 0], parallels: [55, 65], w: 0.14, h: 0.22 },
-  { label: "HI / PAC", sections: ["PAC"], rotate: [157, 0], parallels: [8, 18], w: 0.10, h: 0.14 },
-  { label: "PR / VI", sections: ["PR", "VI"], rotate: [66, 0], parallels: [8, 18], w: 0.10, h: 0.12 },
+  { label: "AK", sections: ["AK"], rotate: [154, 0], parallels: [55, 65], w: 0.14, h: 0.22,
+    compactW: 0.24, compactH: 0.86, compactSide: "west" },
+  { label: "HI / PAC", sections: ["PAC"], rotate: [157, 0], parallels: [8, 18], w: 0.10, h: 0.14,
+    compactW: 0.22, compactH: 0.74, compactSide: "west" },
+  { label: "PR / VI", sections: ["PR", "VI"], rotate: [66, 0], parallels: [8, 18], w: 0.10, h: 0.12,
+    compactW: 0.22, compactH: 0.74, compactSide: "east" },
 ];
 
 const $ = (id) => document.getElementById(id);
@@ -47,11 +57,14 @@ function cssVar(name) {
 function isDark() {
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
+function prefersReducedMotion() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
 // Heat ramp: perceptually ordered multi-hue, brighter/hotter = more QSOs.
 function ramp() {
   const interp = isDark() ? d3.interpolateInferno : d3.interpolateYlOrRd;
   const [lo, hi] = isDark() ? [0.35, 0.97] : [0.12, 0.92];
-  return d3.range(7).map((i) => interp(lo + ((hi - lo) * i) / 6));
+  return d3.range(6).map((i) => interp(lo + ((hi - lo) * i) / 5));
 }
 
 function epoch(ts) {
@@ -87,6 +100,42 @@ function sectionStats() {
   return bySection;
 }
 
+function visualKey(section) {
+  return ONTARIO_SECTIONS.has(section) ? ONTARIO.key : section;
+}
+
+function visualStats(stats, key) {
+  if (key !== ONTARIO.key) return stats.get(key) || null;
+  const recent = [];
+  let count = 0;
+  for (const section of ONTARIO.sections) {
+    const s = stats.get(section);
+    if (!s) continue;
+    count += s.count;
+    recent.push(...s.recent);
+  }
+  recent.sort((a, b) => epoch(a.timestamp) - epoch(b.timestamp));
+  return count ? { count, recent } : null;
+}
+
+function renderedFeatures(features) {
+  const result = [];
+  let ontarioAdded = false;
+  for (const feature of features) {
+    const section = feature.properties.section;
+    if (!ONTARIO_SECTIONS.has(section)) {
+      result.push(feature);
+    } else if (!ontarioAdded) {
+      result.push({
+        ...feature,
+        properties: { ...feature.properties, section: ONTARIO.key, name: ONTARIO.name },
+      });
+      ontarioAdded = true;
+    }
+  }
+  return result;
+}
+
 function lastVisible() {
   for (let i = state.contacts.length - 1; i >= 0; i--) {
     if (passesFilters(state.contacts[i])) return state.contacts[i];
@@ -109,43 +158,64 @@ function drawMap() {
   svg.selectAll("*").remove();
   if (!state.geo.features.length) return;
   const { width, height } = svg.node().getBoundingClientRect();
+  const compact = window.matchMedia("(max-width: 800px)").matches;
+  const insetStripHeight = compact ? Math.max(86, Math.min(112, width * 0.18)) : 0;
+  const insetStripTop = height - insetStripHeight;
 
   state.paths.clear();
-  const drawGroup = (feats, projection) => {
+  const drawGroup = (feats, projection, region) => {
     const path = d3.geoPath(projection);
-    svg.append("g").selectAll("path").data(feats).join("path")
+    svg.append("g").attr("data-map-region", region).selectAll("path").data(feats).join("path")
       .attr("class", "section-shape")
       .attr("d", path)
+      .attr("tabindex", 0)
+      .attr("role", "button")
       .each(function (d) { state.paths.set(d.properties.section, d3.select(this)); })
       .on("click", (event, d) => selectSection(d.properties.section))
+      .on("keydown", (event, d) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          selectSection(d.properties.section);
+        }
+      })
       .on("mousemove", (event, d) => showTooltip(event, d.properties.section))
       .on("mouseleave", hideTooltip);
   };
 
   // Main map: everything except the inset sections, Albers focused on CONUS+Canada.
   const insetSections = new Set(INSETS.flatMap((d) => d.sections));
-  const mainFeats = state.geo.features.filter((f) => !insetSections.has(f.properties.section));
+  const displayFeatures = renderedFeatures(state.geo.features);
+  const mainFeats = displayFeatures.filter((f) => !insetSections.has(f.properties.section));
+  const mainBottom = compact ? insetStripTop - 8 : height - 8;
   const mainProj = d3.geoAlbers().rotate([96, 0]).parallels([30, 50])
-    .fitExtent([[8, 8], [width - 8, height - 8]],
+    .fitExtent([[8, 8], [width - 8, mainBottom]],
       { type: "FeatureCollection", features: mainFeats });
-  drawGroup(mainFeats, mainProj);
+  drawGroup(mainFeats, mainProj, "main");
 
-  // Insets along the bottom-left (empty ocean/Mexico area of the main projection).
-  let x = 10;
+  // Compact layouts reserve a separate bottom rail: AK/Pacific west, PR/VI east.
+  if (compact) {
+    svg.append("line").attr("class", "inset-divider")
+      .attr("x1", 8).attr("x2", width - 8)
+      .attr("y1", insetStripTop).attr("y2", insetStripTop);
+  }
+  let westX = 10;
   for (const def of INSETS) {
-    const feats = state.geo.features.filter((f) => def.sections.includes(f.properties.section));
+    const feats = displayFeatures.filter((f) => def.sections.includes(f.properties.section));
     if (!feats.length) continue;
-    const w = width * def.w, h = height * def.h, y = height - h - 10;
+    const w = width * (compact ? def.compactW : def.w);
+    const h = compact ? insetStripHeight * def.compactH : height * def.h;
+    const x = compact && def.compactSide === "east" ? width - w - 10 : westX;
+    const y = compact ? insetStripTop + (insetStripHeight - h) / 2 : height - h - 10;
     svg.append("rect")
       .attr("class", "inset-box")
       .attr("x", x).attr("y", y).attr("width", w).attr("height", h).attr("rx", 6);
     const proj = d3.geoAlbers().rotate(def.rotate).parallels(def.parallels)
       .fitExtent([[x + 5, y + 16], [x + w - 5, y + h - 5]],
         { type: "FeatureCollection", features: feats });
-    drawGroup(feats, proj);
+    drawGroup(feats, proj, `inset-${def.label.toLowerCase().replaceAll(" / ", "-")}`);
     svg.append("text").attr("class", "inset-label")
       .attr("x", x + 7).attr("y", y + 13).text(def.label);
-    x += w + 8;
+    if (!compact || def.compactSide === "west") westX += w + 8;
   }
 
   repaint();
@@ -153,10 +223,13 @@ function drawMap() {
 
 function repaint() {
   const stats = sectionStats();
-  for (const [section, sel] of state.paths) {
-    const s = stats.get(section);
+  for (const [key, sel] of state.paths) {
+    const s = visualStats(stats, key);
+    const label = key === ONTARIO.key ? ONTARIO.name : `${key} — ${state.names[key] || key}`;
     sel.attr("fill", fillFor(s ? s.count : 0))
-       .classed("selected", section === state.selected);
+       .classed("selected", key === state.selected)
+       .attr("aria-pressed", key === state.selected ? "true" : "false")
+       .attr("aria-label", `${label}: ${s ? s.count : 0} filtered QSO${s && s.count === 1 ? "" : "s"}`);
   }
   renderLegend();
   renderStats(stats);
@@ -167,7 +240,8 @@ function repaint() {
 }
 
 function flashSection(section) {
-  const sel = state.paths.get(section);
+  if (prefersReducedMotion()) return;
+  const sel = state.paths.get(visualKey(section));
   if (!sel) return;
   sel.classed("flash", true);
   setTimeout(() => sel.classed("flash", false), 900);
@@ -180,17 +254,16 @@ function renderLegend() {
   const labels = THRESHOLDS.map((t, i) =>
     i < THRESHOLDS.length - 1 ? `${t}–${THRESHOLDS[i + 1] - 1}` : `${t}+`);
   $("legend").innerHTML =
-    `<span class="lab">QSOs</span>` +
-    `<span class="swatch" style="background:${cssVar("--map-empty")}"></span><span class="lab">0</span>` +
-    colors.map((c) => `<span class="swatch" style="background:${c}"></span>`).join("") +
-    `<span class="lab">${labels[0]} → ${labels[labels.length - 1]}</span>`;
+    `<span class="legend-title">QSOs</span>` +
+    `<span class="legend-item"><span class="swatch" style="background:${cssVar("--map-empty")}"></span><span>0</span></span>` +
+    colors.map((c, i) => `<span class="legend-item"><span class="swatch" style="background:${c}"></span><span>${labels[i]}</span></span>`).join("");
 }
 
 function renderStats(stats) {
   let total = 0;
   for (const s of stats.values()) total += s.count;
   $("stat-qsos").textContent = total;
-  $("stat-sections").textContent = [...stats.keys()].filter((k) => k !== "DX").length;
+  $("stat-sections").textContent = [...stats.keys()].filter((k) => state.validSections.has(k)).length;
   renderClock();
 }
 
@@ -209,7 +282,7 @@ function fmtTime(ts) {
 function contactRows(list, n) {
   return list.slice(-n).reverse().map((c) =>
     `<tr><td>${fmtTime(c.timestamp)}</td><td class="call">${c.call}</td>` +
-    `<td>${c.band}</td><td>${c.mode}</td></tr>`).join("");
+    `<td>${c.section}</td><td>${c.band}</td><td>${c.mode}</td></tr>`).join("");
 }
 
 function renderDetail(stats) {
@@ -220,12 +293,23 @@ function renderDetail(stats) {
     $("detail-hint").textContent =
       "Sections shade as contacts come in. Click one to see its most recent contacts.";
     table.hidden = true;
+    $("detail-breakdown").hidden = true;
     return;
   }
-  const name = state.names[state.selected] || state.selected;
-  const s = stats.get(state.selected);
-  $("detail-title").textContent =
-    `${state.selected} — ${name} (${s ? s.count : 0} QSO${s && s.count === 1 ? "" : "s"})`;
+  const isOntario = state.selected === ONTARIO.key;
+  const name = isOntario ? ONTARIO.name : (state.names[state.selected] || state.selected);
+  const s = visualStats(stats, state.selected);
+  $("detail-title").textContent = isOntario
+    ? `${name} — ${s ? s.count : 0} QSO${s && s.count === 1 ? "" : "s"}`
+    : `${state.selected} — ${name} (${s ? s.count : 0} QSO${s && s.count === 1 ? "" : "s"})`;
+  const breakdown = $("detail-breakdown");
+  breakdown.hidden = !isOntario;
+  if (isOntario) {
+    breakdown.innerHTML = ONTARIO.sections.map((section) => {
+      const subsection = stats.get(section);
+      return `<span><strong>${section}</strong>: ${subsection ? subsection.count : 0}</span>`;
+    }).join("");
+  }
   $("detail-hint").hidden = !!s;
   if (!s) $("detail-hint").textContent = "No contacts yet with the current filters.";
   table.hidden = !s;
@@ -235,7 +319,7 @@ function renderDetail(stats) {
 function renderOffMap(stats) {
   const rows = [];
   for (const [section, s] of stats) {
-    if (state.paths.has(section)) continue;
+    if (state.validSections.has(section)) continue;
     const last = s.recent[s.recent.length - 1];
     const label = state.names[section] || `${section} (unrecognized section)`;
     rows.push(
@@ -280,6 +364,7 @@ function renderTimebar() {
     label.textContent = `full contest · ${fmtDayClock(state.tmax)}`;
     liveBtn.classList.add("on");
   }
+  liveBtn.setAttribute("aria-pressed", state.viewTime === null ? "true" : "false");
 }
 
 function setConn(status) {
@@ -295,9 +380,20 @@ function setConn(status) {
 
 function updatePlayBtn(complete) {
   const btn = $("play-btn");
-  if (replay.playing) { btn.innerHTML = "&#9208; Pause"; btn.classList.add("on"); }
-  else if (complete) { btn.innerHTML = "&#8635; Replay"; btn.classList.remove("on"); }
-  else { btn.innerHTML = "&#9654; Play"; btn.classList.remove("on"); }
+  btn.setAttribute("aria-pressed", replay.playing ? "true" : "false");
+  if (replay.playing) {
+    btn.innerHTML = "&#9208; Pause";
+    btn.setAttribute("aria-label", "Pause replay");
+    btn.classList.add("on");
+  } else if (complete) {
+    btn.innerHTML = "&#8635; Replay";
+    btn.setAttribute("aria-label", "Replay the completed contest from the beginning");
+    btn.classList.remove("on");
+  } else {
+    btn.innerHTML = "&#9654; Play";
+    btn.setAttribute("aria-label", "Play replay");
+    btn.classList.remove("on");
+  }
 }
 
 function cursorFor(t) {
@@ -319,15 +415,29 @@ function startReplay() {
   replay.lastPaint = 0;
   setConn("playing");
   updatePlayBtn();
+  repaint();
   replay.rafId = requestAnimationFrame(replayTick);
 }
 
-function stopReplay(complete) {
+function stopReplay() {
   replay.playing = false;
   if (replay.rafId) cancelAnimationFrame(replay.rafId);
   replay.rafId = null;
-  updatePlayBtn(complete);
-  setConn(complete ? "complete" : "paused");
+  updatePlayBtn(false);
+  setConn("paused");
+  repaint();
+}
+
+function completeReplay(flashes) {
+  replay.playing = false;
+  replay.rafId = null;
+  state.viewTime = null;
+  setConn("complete");
+  updatePlayBtn(true);
+  repaint();
+  for (const c of flashes.slice(-6)) {
+    if (state.bandOn.has(c.band) && state.modeOn.has(c.mode)) flashSection(c.section);
+  }
 }
 
 function replayTick(now) {
@@ -346,7 +456,12 @@ function replayTick(now) {
     replay.cursor++;
   }
 
-  state.viewTime = done ? null : vt;
+  if (done) {
+    completeReplay(flashes);
+    return;
+  }
+
+  state.viewTime = vt;
 
   // Throttle full repaints to ~15 fps; the map transitions smooth the rest.
   if (now - replay.lastPaint > 66 || done) {
@@ -357,25 +472,36 @@ function replayTick(now) {
     renderTimebar();
   }
   for (const c of flashes.slice(-6)) if (state.bandOn.has(c.band) && state.modeOn.has(c.mode)) flashSection(c.section);
-
-  if (done) { stopReplay(true); return; }
   replay.rafId = requestAnimationFrame(replayTick);
 }
 
 function initTimebar() {
   $("time-slider").addEventListener("input", (e) => {
-    if (replay.playing) stopReplay(false);       // scrubbing pauses playback
+    if (replay.playing) stopReplay();             // scrubbing pauses playback
     const v = +e.target.value;
     state.viewTime = v >= state.tmax ? null : v;
+    if (state.viewTime === null) {
+      setConn("complete");
+      updatePlayBtn(true);
+    } else {
+      setConn("paused");
+      updatePlayBtn(false);
+    }
     repaint();
   });
   $("play-btn").addEventListener("click", () => {
-    if (replay.playing) stopReplay(false);
+    if (replay.playing) stopReplay();
     else startReplay();
   });
   $("live-btn").addEventListener("click", () => {
-    if (replay.playing) stopReplay(false);
+    if (replay.playing) {
+      replay.playing = false;
+      if (replay.rafId) cancelAnimationFrame(replay.rafId);
+      replay.rafId = null;
+    }
     state.viewTime = null;                        // jump to full/complete contest
+    setConn("complete");
+    updatePlayBtn(true);
     repaint();
   });
   $("speed-select").addEventListener("change", (e) => {
@@ -392,13 +518,14 @@ function initTimebar() {
 
 function showTooltip(event, section) {
   const stats = sectionStats();
-  const s = stats.get(section);
+  const s = visualStats(stats, section);
   const last = s ? s.recent[s.recent.length - 1] : null;
+  const label = section === ONTARIO.key ? ONTARIO.name : `${section} — ${state.names[section] || section}`;
   const tt = $("tooltip");
   tt.innerHTML =
-    `<div class="tt-title">${section} — ${state.names[section] || section}</div>` +
+    `<div class="tt-title">${label}</div>` +
     `<div class="tt-sub">${s ? s.count : 0} QSOs` +
-    (last ? ` · last ${last.call} ${last.band} ${last.mode} ${fmtTime(last.timestamp)}Z` : "") + `</div>`;
+    (last ? ` · last ${last.call} ${last.section} ${last.band} ${last.mode} ${fmtTime(last.timestamp)}Z` : "") + `</div>`;
   tt.hidden = false;
   const pane = tt.parentElement.getBoundingClientRect();
   tt.style.left = Math.min(event.clientX - pane.left + 14, pane.width - 250) + "px";
@@ -425,6 +552,8 @@ function makeChips(containerId, values, onSet) {
     const chip = document.createElement("button");
     chip.className = "chip" + (onSet.has(v) ? " on" : "");
     chip.textContent = v;
+    chip.setAttribute("aria-pressed", onSet.has(v) ? "true" : "false");
+    chip.setAttribute("aria-label", `${v} filter: ${onSet.has(v) ? "included" : "excluded"}`);
     chip.onclick = () => {
       onSet.has(v) ? onSet.delete(v) : onSet.add(v);
       renderFilters();
@@ -453,6 +582,7 @@ async function boot() {
   } catch { state.names = {}; }
   try {
     state.geo = await (await fetch("data/arrl_sections.geojson")).json();
+    state.validSections = new Set(state.geo.features.map((f) => f.properties.section));
   } catch {
     $("detail-title").textContent = "Missing map data";
     $("detail-hint").textContent =
@@ -480,7 +610,7 @@ async function boot() {
   drawMap();
 
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", repaint);
-  new ResizeObserver(() => drawMap()).observe($("map"));
+  new ResizeObserver(() => drawMap()).observe(document.querySelector(".map-pane"));
 }
 
 boot();

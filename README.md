@@ -17,6 +17,12 @@ static host (GitHub Pages, Cloudflare Pages, Netlify).
 | `data/arrl_sections.geojson` | ARRL/RAC section boundary polygons |
 | `data/section_names.json` | Section abbreviation → full name |
 
+The boundary file contains 81 valid worked ARRL/RAC section features. Ontario's four
+valid subsection codes (GH, ONE, ONN, ONS) share identical province geometry in the
+source, so the interface renders one honest aggregate Ontario polygon while retaining
+all four codes and their filtered counts in the detail panel. DX and the invalid raw-log
+values NIL, SWF, and WFL remain off-map.
+
 ## Running locally
 
 Just open `index.html`. If your browser blocks `fetch()` of the local JSON
@@ -33,6 +39,10 @@ python -m http.server 8000
 timestamp, worked callsign, band, mode, and ARRL section. See `about.html`
 for how the section boundary file was built and its documented
 simplifications.
+
+The interface is responsive at phone, tablet, and desktop widths. All controls and
+rendered map regions are keyboard operable, filter state is exposed with
+`aria-pressed`, and reduced-motion preferences disable map transitions and flashes.
 
 Boundary data: US Census Bureau (public domain) and Natural Earth (public
 domain). Built with D3 v7.

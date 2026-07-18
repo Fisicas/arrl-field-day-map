@@ -19,7 +19,7 @@
       <div class="stat"><span class="stat-value" id="stat-qsos">0</span><span class="stat-label">QSOs</span></div>
       <div class="stat"><span class="stat-value" id="stat-sections">0</span><span class="stat-label">Sections</span></div>
       <div class="stat"><span class="stat-value" id="stat-clock">--:--</span><span class="stat-label">Contest time (UTC)</span></div>
-      <div class="stat"><span class="conn-dot" id="conn-dot"></span><span class="stat-label" id="conn-label">loading…</span></div>
+      <div class="stat" role="status" aria-live="polite"><span class="conn-dot" id="conn-dot" aria-hidden="true"></span><span class="stat-label" id="conn-label">loading…</span></div>
       <a class="about-link" href="about.html">About</a>
     </div>
   </header>
@@ -30,11 +30,11 @@
   </div>
 
   <div class="timebar">
-    <button id="play-btn" class="chip on" aria-label="Play or pause the replay">&#9654; Play</button>
-    <button id="live-btn" class="chip" aria-label="Show the full completed contest">Full contest</button>
+    <button id="play-btn" class="chip on" aria-label="Play replay" aria-pressed="false">&#9654; Play</button>
+    <button id="live-btn" class="chip" aria-label="Show the full completed contest" aria-pressed="false">Full contest</button>
     <input type="range" id="time-slider" min="0" max="0" value="0" step="60"
            aria-label="Scrub contest time">
-    <span class="time-label" id="time-label">loading…</span>
+    <span class="time-label" id="time-label" aria-live="polite">loading…</span>
     <label class="speed-ctl">Speed
       <select id="speed-select" aria-label="Replay speed">
         <option value="30">Fast (~30 s)</option>
@@ -46,17 +46,18 @@
 
   <main>
     <div class="map-pane">
-      <svg id="map" role="img" aria-label="Choropleth map of ARRL sections worked"></svg>
-      <div class="legend" id="legend"></div>
+      <svg id="map" role="group" aria-label="Interactive choropleth map of worked ARRL and RAC sections. Use Tab to focus a section and Enter or Space to select it."></svg>
+      <div class="legend" id="legend" aria-label="QSO heat-scale legend"></div>
       <div class="tooltip" id="tooltip" hidden></div>
     </div>
 
     <aside class="side-panel">
-      <section class="panel" id="detail-panel">
+      <section class="panel" id="detail-panel" aria-live="polite">
         <h2 id="detail-title">Click a section</h2>
         <p class="panel-hint" id="detail-hint">Sections shade as contacts come in. Click one to see its most recent contacts.</p>
+        <div class="section-breakdown" id="detail-breakdown" hidden></div>
         <table class="contact-table" id="detail-table" hidden>
-          <thead><tr><th>UTC</th><th>Call</th><th>Band</th><th>Mode</th></tr></thead>
+          <thead><tr><th>UTC</th><th>Call</th><th>Sec.</th><th>Band</th><th>Mode</th></tr></thead>
           <tbody></tbody>
         </table>
       </section>

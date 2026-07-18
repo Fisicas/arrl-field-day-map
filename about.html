@@ -27,7 +27,8 @@
     <li><strong>Full contest</strong> jumps straight to the finished, all-contacts view.</li>
     <li>The <strong>time slider</strong> scrubs to any moment; the map, counts, and panels
       all reflect that instant.</li>
-    <li><strong>Click a section</strong> to see its most recent contacts; hover for a quick tally.</li>
+    <li><strong>Select a section</strong> with a pointer, or focus it with Tab and press Enter or
+      Space, to see its most recent contacts; hover provides a quick tally.</li>
     <li><strong>Band / mode chips</strong> filter what's shown.</li>
     <li>Alaska, Hawaii/Pacific, and Puerto Rico/Virgin Islands are drawn as inset boxes so the
       contiguous US stays large. DX and any section without map geometry appear in the
@@ -40,13 +41,16 @@
   polygons dissolved into sections using ARRL's published county-to-section list, plus
   Natural Earth province polygons for the Canadian RAC sections. Geometry is generalized to
   cartographic (national/continental) detail — appropriate for a section-level choropleth,
-  not for street-level accuracy.</p>
+  not for street-level accuracy. The current file contains 81 valid worked section features;
+  DX and the three invalid log values have no borrowed or placeholder geometry.</p>
 
   <h2>Known simplifications &amp; data notes</h2>
   <ul>
     <li><strong>Ontario</strong> is split by ARRL into four sections (GH, ONE, ONN, ONS), but
-      no authoritative sub-provincial boundary data was available, so all four share the single
-      Ontario province polygon — clicking within Ontario is ambiguous among them.</li>
+      no authoritative sub-provincial boundary data was available. The boundary file retains
+      all four valid codes with the same province geometry; the interface deliberately draws
+      one Ontario polygon and combines their heat, hover, flash, and detail totals. The detail
+      panel still reports each subsection and each contact's actual code.</li>
     <li><strong>Pacific (PAC)</strong> is shown using Hawaii's shape only; Guam, American Samoa,
       and the Northern Mariana Islands are not represented.</li>
     <li><strong>Three logged section codes</strong> (<code>NIL</code>, <code>WFL</code>,
