@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>About — W4JB Field Day Section Map</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="doc">
+  <a class="back" href="index.html">← Back to the map</a>
+  <h1>W4JB Field Day Section Map</h1>
+  <p class="muted">An interactive replay of the W4JB (Fayette County ARC) ARRL Field Day 2026 log,
+  shaded by ARRL/RAC section. Proof-of-concept.</p>
+
+  <h2>What you're looking at</h2>
+  <p>Every contact in the club's 2026 Field Day log is plotted by the ARRL/RAC section
+  reported in its exchange. Sections shade hotter as their QSO count grows, and briefly
+  flash as new contacts come in during playback. The dataset is 1,180 QSOs spanning the
+  full 24-hour contest window (2026-06-27 18:03Z → 2026-06-28 18:06Z), across five bands
+  (10/15/20/40/80 m) and five modes (CW, FT8, MFSK, RTTY, SSB).</p>
+
+  <h2>Using the map</h2>
+  <ul>
+    <li><strong>Play / Pause</strong> replays the contest chronologically; the speed control
+      sets how long the full 24 hours takes to play (about 30 s to 2 min).</li>
+    <li><strong>Full contest</strong> jumps straight to the finished, all-contacts view.</li>
+    <li>The <strong>time slider</strong> scrubs to any moment; the map, counts, and panels
+      all reflect that instant.</li>
+    <li><strong>Click a section</strong> to see its most recent contacts; hover for a quick tally.</li>
+    <li><strong>Band / mode chips</strong> filter what's shown.</li>
+    <li>Alaska, Hawaii/Pacific, and Puerto Rico/Virgin Islands are drawn as inset boxes so the
+      contiguous US stays large. DX and any section without map geometry appear in the
+      "Off-map tally" panel rather than being dropped.</li>
+  </ul>
+
+  <h2>How the section map was built</h2>
+  <p>ARRL does not publish an official GeoJSON of section boundaries, so the boundary file
+  was built from public-domain sources: US Census Bureau 2023 Cartographic Boundary county
+  polygons dissolved into sections using ARRL's published county-to-section list, plus
+  Natural Earth province polygons for the Canadian RAC sections. Geometry is generalized to
+  cartographic (national/continental) detail — appropriate for a section-level choropleth,
+  not for street-level accuracy.</p>
+
+  <h2>Known simplifications &amp; data notes</h2>
+  <ul>
+    <li><strong>Ontario</strong> is split by ARRL into four sections (GH, ONE, ONN, ONS), but
+      no authoritative sub-provincial boundary data was available, so all four share the single
+      Ontario province polygon — clicking within Ontario is ambiguous among them.</li>
+    <li><strong>Pacific (PAC)</strong> is shown using Hawaii's shape only; Guam, American Samoa,
+      and the Northern Mariana Islands are not represented.</li>
+    <li><strong>Three logged section codes</strong> (<code>NIL</code>, <code>WFL</code>,
+      <code>SWF</code>) are not current ARRL/RAC sections — each was flagged in the log itself as
+      an invalid/garbled section copy (likely RTTY mis-decodes). They appear in the off-map tally
+      as unrecognized rather than painted onto real geometry.</li>
+    <li><strong>Single-operator log.</strong> The station/operator field is the club call on every
+      record, so this dataset shows <em>where W4JB reached</em>, not per-operator performance.
+      Per-operator identity would require per-op logging in the live setup.</li>
+  </ul>
+
+  <h2>Where this is headed</h2>
+  <p>This is a Phase 1 proof-of-concept driven by a static export of this year's log. The same
+  front end is designed to be fed by a live logging feed during next year's Field Day, so the
+  map can update in real time as contacts are made.</p>
+
+  <p class="muted">Boundary data: US Census Bureau (public domain) and Natural Earth (public domain).
+  Reference N1MM packet-listener logic credited to W4VBD. Built with D3 v7.</p>
+</div>
+</body>
+</html>

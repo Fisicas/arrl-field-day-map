@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>W4JB Field Day Section Map</title>
+<meta name="description" content="Interactive replay of the W4JB ARRL Field Day 2026 log across ARRL/RAC sections.">
+<link rel="stylesheet" href="style.css">
+<script src="vendor/d3.v7.min.js"></script>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="title-block">
+      <h1>W4JB Field Day Section Map</h1>
+      <span class="subtitle">ARRL Field Day 2026 &middot; replay</span>
+    </div>
+    <div class="stats-row">
+      <div class="stat"><span class="stat-value" id="stat-qsos">0</span><span class="stat-label">QSOs</span></div>
+      <div class="stat"><span class="stat-value" id="stat-sections">0</span><span class="stat-label">Sections</span></div>
+      <div class="stat"><span class="stat-value" id="stat-clock">--:--</span><span class="stat-label">Contest time (UTC)</span></div>
+      <div class="stat"><span class="conn-dot" id="conn-dot"></span><span class="stat-label" id="conn-label">loading…</span></div>
+      <a class="about-link" href="about.html">About</a>
+    </div>
+  </header>
+
+  <div class="filters" id="filters">
+    <div class="filter-group" id="band-filters"><span class="filter-title">Band</span></div>
+    <div class="filter-group" id="mode-filters"><span class="filter-title">Mode</span></div>
+  </div>
+
+  <div class="timebar">
+    <button id="play-btn" class="chip on" aria-label="Play or pause the replay">&#9654; Play</button>
+    <button id="live-btn" class="chip" aria-label="Show the full completed contest">Full contest</button>
+    <input type="range" id="time-slider" min="0" max="0" value="0" step="60"
+           aria-label="Scrub contest time">
+    <span class="time-label" id="time-label">loading…</span>
+    <label class="speed-ctl">Speed
+      <select id="speed-select" aria-label="Replay speed">
+        <option value="30">Fast (~30 s)</option>
+        <option value="60" selected>Normal (~60 s)</option>
+        <option value="120">Slow (~2 min)</option>
+      </select>
+    </label>
+  </div>
+
+  <main>
+    <div class="map-pane">
+      <svg id="map" role="img" aria-label="Choropleth map of ARRL sections worked"></svg>
+      <div class="legend" id="legend"></div>
+      <div class="tooltip" id="tooltip" hidden></div>
+    </div>
+
+    <aside class="side-panel">
+      <section class="panel" id="detail-panel">
+        <h2 id="detail-title">Click a section</h2>
+        <p class="panel-hint" id="detail-hint">Sections shade as contacts come in. Click one to see its most recent contacts.</p>
+        <table class="contact-table" id="detail-table" hidden>
+          <thead><tr><th>UTC</th><th>Call</th><th>Band</th><th>Mode</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </section>
+      <section class="panel">
+        <h2>Latest contact</h2>
+        <div class="latest" id="latest">&mdash;</div>
+      </section>
+      <section class="panel">
+        <h2>Off-map tally</h2>
+        <p class="panel-hint">DX and sections without map geometry.</p>
+        <table class="contact-table" id="offmap-table">
+          <tbody></tbody>
+        </table>
+      </section>
+    </aside>
+  </main>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
