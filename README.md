@@ -43,6 +43,8 @@ simplifications.
 The interface is responsive at phone, tablet, and desktop widths. All controls and
 rendered map regions are keyboard operable, filter state is exposed with
 `aria-pressed`, and reduced-motion preferences disable map transitions and flashes.
+The interface defaults to dark mode; the Light/Dark control stores each visitor's
+selection locally on that device.
 
 Boundary data: US Census Bureau (public domain) and Natural Earth (public
 domain). Built with D3 v7.

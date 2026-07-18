@@ -1,32 +1,30 @@
 :root {
+  color-scheme: dark;
+  --surface-1: #1a1a19;
+  --page: #0d0d0d;
+  --text-primary: #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted: #898781;
+  --hairline: #2c2c2a;
+  --border: rgba(255, 255, 255, 0.10);
+  --map-empty: #242423;
+  --map-stroke: #0d0d0d;
+  --flash: #22d3ee;
+  --good: #0ca30c;
+}
+:root[data-theme="light"] {
   color-scheme: light;
   --surface-1: #fcfcfb;
   --page: #f9f9f7;
   --text-primary: #0b0b0b;
   --text-secondary: #52514e;
-  --text-muted: #898781;
+  --text-muted: #77756f;
   --hairline: #e1e0d9;
   --border: rgba(11, 11, 11, 0.10);
   --map-empty: #f0efec;
   --map-stroke: #fcfcfb;
   --flash: #0e7490;
   --good: #006300;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-    --surface-1: #1a1a19;
-    --page: #0d0d0d;
-    --text-primary: #ffffff;
-    --text-secondary: #c3c2b7;
-    --text-muted: #898781;
-    --hairline: #2c2c2a;
-    --border: rgba(255, 255, 255, 0.10);
-    --map-empty: #242423;
-    --map-stroke: #0d0d0d;
-    --flash: #22d3ee;
-    --good: #0ca30c;
-  }
 }
 
 * { box-sizing: border-box; margin: 0; }
@@ -55,6 +53,14 @@ h1 { font-size: 1.15rem; font-weight: 650; }
 .conn-dot.playing { background: var(--flash); }
 .about-link { color: var(--text-muted); font-size: 0.82rem; text-decoration: none; border-bottom: 1px solid var(--border); }
 .about-link:hover { color: var(--text-primary); }
+.theme-toggle {
+  display: inline-flex; align-items: center; gap: 5px;
+  min-height: 36px; padding: 6px 10px;
+  border: 1px solid var(--border); border-radius: 999px;
+  background: var(--surface-1); color: var(--text-secondary);
+  font: inherit; font-size: 0.78rem; cursor: pointer;
+}
+.theme-toggle:hover { color: var(--text-primary); border-color: var(--text-secondary); }
 
 .filters { display: flex; gap: 24px; flex-wrap: wrap; align-items: center; }
 .filter-group { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
@@ -172,7 +178,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
     position: static; justify-content: flex-start; max-width: none;
     padding: 8px 10px 10px;
   }
-  .chip, .speed-ctl select { min-height: 44px; }
+  .chip, .speed-ctl select, .theme-toggle { min-height: 44px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

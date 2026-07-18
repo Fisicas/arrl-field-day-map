@@ -49,16 +49,39 @@ const INSETS = [
     compactW: 0.22, compactH: 0.74, compactSide: "east" },
 ];
 
+const THEME_STORAGE_KEY = "field-day-map-theme";
 const $ = (id) => document.getElementById(id);
 
 function cssVar(name) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 function isDark() {
-  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  return document.documentElement.dataset.theme !== "light";
 }
 function prefersReducedMotion() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+function updateThemeToggle() {
+  const dark = isDark();
+  $("theme-icon").textContent = dark ? "☀" : "☾";
+  $("theme-label").textContent = dark ? "Light" : "Dark";
+  $("theme-toggle").setAttribute("aria-label", `Switch to ${dark ? "light" : "dark"} mode`);
+}
+function applyTheme(theme, { persist = false, repaintView = false } = {}) {
+  document.documentElement.dataset.theme = theme === "light" ? "light" : "dark";
+  if (persist) {
+    try { localStorage.setItem(THEME_STORAGE_KEY, document.documentElement.dataset.theme); } catch { /* unavailable */ }
+  }
+  updateThemeToggle();
+  if (repaintView) repaint();
+}
+function initTheme() {
+  let saved = null;
+  try { saved = localStorage.getItem(THEME_STORAGE_KEY); } catch { /* unavailable */ }
+  applyTheme(saved === "light" ? "light" : "dark");
+  $("theme-toggle").addEventListener("click", () => {
+    applyTheme(isDark() ? "light" : "dark", { persist: true, repaintView: true });
+  });
 }
 // Heat ramp: perceptually ordered multi-hue, brighter/hotter = more QSOs.
 function ramp() {
@@ -577,6 +600,7 @@ function ingest(c) {
 /* ---------- boot ---------- */
 
 async function boot() {
+  initTheme();
   try {
     state.names = await (await fetch("data/section_names.json")).json();
   } catch { state.names = {}; }
@@ -609,7 +633,6 @@ async function boot() {
   updatePlayBtn();
   drawMap();
 
-  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", repaint);
   new ResizeObserver(() => drawMap()).observe(document.querySelector(".map-pane"));
 }
 

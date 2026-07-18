@@ -1,10 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>W4JB Field Day Section Map</title>
 <meta name="description" content="Interactive replay of the W4JB ARRL Field Day 2026 log across ARRL/RAC sections.">
+<script>try{if(localStorage.getItem("field-day-map-theme")==="light")document.documentElement.dataset.theme="light"}catch{}</script>
 <link rel="stylesheet" href="style.css">
 <script src="vendor/d3.v7.min.js"></script>
 </head>
@@ -20,6 +21,7 @@
       <div class="stat"><span class="stat-value" id="stat-sections">0</span><span class="stat-label">Sections</span></div>
       <div class="stat"><span class="stat-value" id="stat-clock">--:--</span><span class="stat-label">Contest time (UTC)</span></div>
       <div class="stat" role="status" aria-live="polite"><span class="conn-dot" id="conn-dot" aria-hidden="true"></span><span class="stat-label" id="conn-label">loading…</span></div>
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to light mode"><span id="theme-icon" aria-hidden="true">&#9728;</span><span id="theme-label">Light</span></button>
       <a class="about-link" href="about.html">About</a>
     </div>
   </header>
